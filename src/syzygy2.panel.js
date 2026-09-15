@@ -38,7 +38,7 @@ function positiony(v){y=v;if(values.active&&!values.hold){history.push([x,y]);if
 function paint(){
  rect(0,0,1052,169,bg);rect(0,0,1052,2,glass);
  text('S Y Z Y G Y',14,25,16,ink,true);text('THREE RESONANT BODIES',14,41,7,muted);
- 
+
  var p=[[28,93],[62,75],[97,97]];
  for(var a=0;a<3;a++)for(var b=a+1;b<3;b++)line(p[a][0],p[a][1],p[b][0],p[b][1],[0.28,0.44,0.42,0.3+values.coupling*0.7],1+values.coupling);
  for(var n=0;n<3;n++){var c=[wood,glass,metal][n];circle(p[n][0],p[n][1],6+Math.min(8,levels[n]*25),c,false);circle(p[n][0],p[n][1],2,c,true);}
@@ -62,7 +62,6 @@ function paint(){
   text(b[0]==='capture'&&captureBusy?'SAVING...':b[5],b[1]+7,b[2]+b[4]/2+3,b[4]>15?8:7,enabled?b[6]:muted,true);
  }
  line(14,153,1038,153,[0.17,0.23,0.24,1]);text(message,15,164,8,muted,false);
- text('WOOD / GLASS / METAL',916,164,7,muted,false);
 }
 function onclick(mx,my){
  for(var i=0;i<buttons.length;i++){var b=buttons[i];if(mx>=b[1]&&mx<=b[1]+b[3]&&my>=b[2]&&my<=b[2]+b[4]){outlet(0,'action',b[0]);return;}}
