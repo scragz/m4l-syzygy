@@ -7,10 +7,9 @@ import struct
 ROOT = Path(__file__).resolve().parents[1]
 DEST = ROOT / 'device'
 VERSION = dict(major=9, minor=0, revision=0, architecture='x64', modernui=1)
-INK = [0.90, 0.91, 0.88, 1]
-GOLD = [0.85, 0.72, 0.43, 1]
-TEAL = [0.40, 0.78, 0.71, 1]
-BG = [0.071, 0.086, 0.09, 1]
+import sys
+sys.path.insert(0, str(ROOT.parent / 'theme'))
+import theme as T  # noqa: E402  shared device theme
 BOXES, LINES, PARAMETERS = [], [], {}
 
 
@@ -52,19 +51,22 @@ def parameter(key, label, lo, hi, initial, rect=None, kind='live.dial', unit=5, 
 def dial(key, label, lo, hi, initial, x, y, unit=5, hint='', **attrs):
     if unit == 5:
         lo, hi, initial = lo*100, hi*100, initial*100
-    parameter(key, label, lo, hi, initial, [x,y,52,51], unit=unit,
-              appearance=0, activefgdialcolor=GOLD, activeneedlecolor=INK,
-              textcolor=INK, textcolor2=[0.59,0.65,0.64,1],
-              activedialcolor=[0.21,0.25,0.25,1], fontsize=9,
-              annotation=hint, **attrs)
+    parameter(key, label, lo, hi, initial, [x,y,44,48], unit=unit,
+              annotation=hint, **T.dial(showname=True), **attrs)
 
 
-def button(key, text, rect, toggle=False, initial=0, color=TEAL):
+def tiny(key, label, lo, hi, initial, x, y, unit=5, hint=''):
+    """Live's tiny dial (fixed size): name above, small knob, value beside it. Stacks 34 px apart."""
+    if unit == 5:
+        lo, hi, initial = lo*100, hi*100, initial*100
+    parameter(key, label, lo, hi, initial, [x,y,60,34], unit=unit, annotation=hint,
+              appearance=1, showname=1, shownumber=1)
+
+
+def button(key, text, rect, toggle=False, initial=0):
     parameter(key, key.title(), 0, 1, initial, rect, kind='live.text', unit=9,
               enum=['Off','On'], mode=1 if toggle else 0,
-              text=text, texton=text, fontsize=9, rounded=3,
-              bgcolor=[0.16,0.20,0.20,1], bgoncolor=color,
-              textcolor=INK, textoncolor=BG)
+              text=text, texton=text, **T.button())
     if not toggle:
         # Keep Live's parameter-backed widget enabled, but don't expose actions
         # for automation or emit an action during parameter initialization.
@@ -79,3 +81,16 @@ def button(key, text, rect, toggle=False, initial=0, color=TEAL):
         wire('msg-'+key, 'control')
 
 
+def action(key, text, rect):
+    """Momentary live.text that is not a Live parameter; sends `action <key>` to the controller."""
+    box(key, 'live.text', [1320, 300+len(BOXES)*2, 60, 20], varname=key, presentation=1, presentation_rect=rect,
+        text=text, texton=text, mode=0, parameter_enable=0, numinlets=1, numoutlets=2, outlettype=['', ''],
+        **T.button())
+    box('msg-'+key, 'message', [1400, 300+len(BOXES)*2, 110, 22], text='action '+key)
+    wire(key, 'msg-'+key)
+    wire('msg-'+key, 'control')
+
+
+def label(key, text, rect, role='label'):
+    box(key, 'comment', rect, text=text, presentation=1, presentation_rect=rect, numinlets=1, numoutlets=0,
+        **T.label(role))

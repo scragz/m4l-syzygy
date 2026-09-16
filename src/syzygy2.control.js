@@ -20,8 +20,12 @@ var probeCount=0;
 function clamp(v,lo,hi){return Math.max(lo,Math.min(hi,v));}
 function ui(key,v){var o=this.patcher.getnamed(key);if(o)o.message('float',percent.indexOf(key)>=0?v*100:v);}
 function status(s){outlet(1,'status',s);}
+// Native action buttons mirror controller state: Undo dims when empty, Capture shows progress.
+function attr(key,name,v){var o=this.patcher.getnamed(key);if(o)o.message(name,v);}
+function undostate(){outlet(1,'undoavailable',undoStack.length);attr('undo','active',undoStack.length?1:0);}
+function busystate(v){outlet(1,'busy',v);attr('capture','text',v?'Saving\u2026':'Capture 30 s');}
 function sync(){for(var k in base){if(k!=='variation')outlet(0,k,base[k]);outlet(1,'value',k,base[k]);}}
-function init(){sync();outlet(1,'undoavailable',undoStack.length);}
+function init(){sync();undostate();}
 function anything(){
     var k=messagename,v=Number(arguments[0]);
     if(!base.hasOwnProperty(k)||!isFinite(v))return;
@@ -38,14 +42,14 @@ function strike(which,vel){
     outlet(0,'target',clamp(Number(which)||0,0,3));
     outlet(0,'velocity',vel===undefined?0.8:clamp(Number(vel),0,1));
     outlet(0,'strikeid',strikeCount);
-    status(['ALL BODIES STRUCK','WOOD STRUCK','GLASS STRUCK','METAL STRUCK'][Number(which)||0]);
+    status(['All bodies struck','Wood struck','Glass struck','Metal struck'][Number(which)||0]);
 }
 function note(pitch,velocity){if(velocity<=0)return;ui('root',clamp(440*Math.pow(2,(pitch-69)/12),27.5,880));strike(0,velocity/127);}
 function xy(x,y){ui('azimuth',clamp(x,0,1));ui('elevation',clamp(y,0,1));}
 function snapshot(){var s={};for(var i=0;i<mutable.length;i++)s[mutable[i]]=base[mutable[i]];return s;}
-function remember(){undoStack.push(snapshot());if(undoStack.length>16)undoStack.shift();outlet(1,'undoavailable',undoStack.length);}
+function remember(){undoStack.push(snapshot());if(undoStack.length>16)undoStack.shift();undostate();}
 function vary(){
-    if(base.variation<=0){status('RAISE VARIATION TO EXPLORE');return;}
+    if(base.variation<=0){status('Raise Vary % to explore');return;}
     remember();restoring=true;
     for(var i=0;i<mutable.length;i++){
         var k=mutable[i],r=ranges[k]||[0,1];
@@ -53,12 +57,12 @@ function vary(){
         var delta=(Math.random()*2-1)*base.variation*(k==='cycle'?base.cycle*0.4:0.3);
         ui(k,clamp(base[k]+delta,r[0],r[1]));
     }
-    restoring=false;status('VARIATION APPLIED / UNDO AVAILABLE');
+    restoring=false;status('Variation applied');
 }
 function undo(){
-    if(!undoStack.length){status('NO VARIATION TO UNDO');return;}
+    if(!undoStack.length){status('Nothing to undo');return;}
     var s=undoStack.pop();restoring=true;for(var k in s)ui(k,s[k]);restoring=false;
-    outlet(1,'undoavailable',undoStack.length);status('PREVIOUS SETTINGS RESTORED');
+    undostate();status('Previous settings restored');
 }
 function scene(which){
     var scenes=[
@@ -68,9 +72,9 @@ function scene(which){
         {wood:0.8,glass:0.65,metal:0.45,decay:0.5,brightness:0.5,alignment:0.8,coupling:0.22,instability:0.12,motion:0.35,cycle:18,bloom:0.45,space:0.35,width:0.8}
     ];
     var s=scenes[clamp(Math.floor(which),0,3)];remember();for(var k in s)ui(k,s[k]);
-    status('STARTING SOUND LOADED / UNDO AVAILABLE');
+    status('Starting sound loaded');
 }
-function panic(){ui('active',0);panicTask.cancel();panicTask.schedule(180);status('NETWORK CLEARED / AUDIO HISTORY KEPT');}
+function panic(){ui('active',0);panicTask.cancel();panicTask.schedule(180);status('Cleared; audio history kept');}
 function action(name){
     if(name==='strike')strike(0);
     else if(name==='woodstrike')strike(1);
@@ -96,14 +100,14 @@ function capture(){
     captureto(p.slice(0,slash)+'/captures/'+name);
 }
 function captureto(path){
-    if(captureBusy){status('CAPTURE IS STILL SAVING');return;}
-    if(validFrames<64){status('NO AUDIO HISTORY YET');return;}
+    if(captureBusy){status('Capture still saving');return;}
+    if(validFrames<64){status('No audio history yet');return;}
     capturePath=String(path);
     var f=new File(capturePath,'write');
-    if(!f.isopen){status('CANNOT WRITE / KEEP CAPTURES FOLDER WITH DEVICE');return;}
+    if(!f.isopen){status('Cannot write: keep the captures folder with the device');return;}
     f.close();
-    captureBusy=true;outlet(1,'busy',1);outlet(2,'paused',1);
-    status('CAPTURING PREVIOUS AUDIO');settleTask.schedule(120);
+    captureBusy=true;busystate(1);outlet(2,'paused',1);
+    status('Capturing previous audio');settleTask.schedule(120);
 }
 function copyStart(){
     try{
@@ -130,8 +134,8 @@ function copyChunk(){
 function verifyWrite(){
     var f=new File(capturePath,'read');var complete=f.isopen&&f.eof>=captureFrames*4+44;f.close();
     if(!complete&&probeCount++<30){verifyTask.schedule(200);return;}
-    captureBusy=false;outlet(1,'busy',0);
-    status(complete?'SAVED '+capturePath.slice(capturePath.lastIndexOf('/')+1):'CAPTURE WRITE FAILED');
+    captureBusy=false;busystate(0);
+    status(complete?'Saved '+capturePath.slice(capturePath.lastIndexOf('/')+1):'Capture write failed');
 }
-function captureError(e){outlet(2,'paused',0);captureBusy=false;outlet(1,'busy',0);status('CAPTURE FAILED: '+e);}
+function captureError(e){outlet(2,'paused',0);captureBusy=false;busystate(0);status('Capture failed: '+e);}
 function notifydeleted(){settleTask.cancel();copyTask.cancel();verifyTask.cancel();panicTask.cancel();}
